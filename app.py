@@ -259,21 +259,39 @@ with player:
 
 with validation:
     st.subheader('Model laboratory')
-    summary=json.loads((ROOT/'research'/'pittsburgh_calibration_test.json').read_text())
-    st.markdown('**Pittsburgh archived calibration smoke test (V2 probabilities only)**')
-    o=summary['original_v2_holdout'];c=summary['v3_calibration_holdout']
-    a,b=st.columns(2)
-    a.metric('Original log loss',f"{o['log_loss']:.6f}")
-    b.metric('Recalibrated log loss',f"{c['log_loss']:.6f}")
-    a,b=st.columns(2)
-    a.metric('Original Brier score',f"{o['brier']:.6f}")
-    b.metric('Recalibrated Brier score',f"{c['brier']:.6f}")
-    st.image(str(ROOT/'research'/'preview_calibration.png'),use_container_width=True)
-    st.warning('This is NOT a V3-versus-V2 model test. Full ten-season V3 evaluation and prospective DK/FD edge validation have not been completed.')
-    st.markdown('**V3 promotion checklist**')
-    for item in ['Train challenger with strictly prior-game features','Hold out 2024–25 retrospective seasons without tuning on test scores','Require paired improvement and uncertainty interval','Run future prospective paper test with timestamped sportsbook lines','Manually approve only after documented review']:
-        st.checkbox(item,value=False,disabled=True)
-    st.caption('Do not automatically promote a model just because of a brief winning streak.')
+    report_path=ROOT/'research'/'full_validation_summary.json'
+    if report_path.exists():
+        study=json.loads(report_path.read_text())
+        scores=study['scores']
+        a,b=st.columns(2)
+        a.metric('V2 holdout log loss',f"{scores['v2_original']['log_loss']:.6f}")
+        b.metric('V3 holdout log loss',f"{scores['v3_calibrated']['log_loss']:.6f}")
+        a,b=st.columns(2)
+        a.metric('V2 Brier score',f"{scores['v2_original']['brier']:.6f}")
+        b.metric('V3 Brier score',f"{scores['v3_calibrated']['brier']:.6f}")
+        st.caption(f"{study['test_rows']:,} player-games / {study['test_games']:,} NHL games / {study['binary_line_rows']:,} player-game-line outcomes.")
+        paired=study['paired_v3_minus_baseline']['v2_original']
+        st.write('**Paired V3 minus V2 log-loss difference:** '+f"{paired['log_loss_delta']:.8f}")
+        st.write('**95% interval by NHL game:** '+str([round(x,8) for x in paired['by_game']['ci95']]))
+        st.write('**95% interval by calendar week:** '+str([round(x,8) for x in paired['by_calendar_week']['ci95']]))
+        st.info('Retrospective improvement is small. It supports a future paper trial; it does not establish profitable sportsbook picks.')
+        st.warning('2024-25 and 2025-26 were excluded from training and tuning in this run, but had previously been examined in V2 research. They are retrospective holdouts, not pristine unseen data.')
+        st.markdown('**V3 promotion checklist**')
+        items=[
+            ('Train challenger with strictly prior-game features',True),
+            ('Hold out 2024–25 retrospective seasons without tuning on test scores',True),
+            ('Require paired improvement and uncertainty interval',study['retrospective_gate_passed']),
+            ('Run future prospective paper test with timestamped sportsbook lines',False),
+            ('Manually approve only after documented review',False)]
+        for label,complete in items:st.checkbox(label,value=bool(complete),disabled=True)
+        st.caption('Trained and evaluated on 2026-10-18. V2 remains champion. V3 is research-only; no automatic promotion.')
+        st.markdown('**Prospective trial status**')
+        st.write('Frozen paired models and an append-only paper ledger are prepared. Current verified game-history features, pregame participation checks, an entitled DK/FD odds feed, and independent timestamp storage must be connected before the future trial can run.')
+        st.write('Below 55% is a review trigger after at least 100 graded paper selections and 30 calendar days. Review ROI, calibration and genuine closing prices alongside hit rate. Register one challenger and use a fresh future window.')
+        with st.expander('Evaluation evidence'):
+            st.json(study)
+    else:
+        st.info('Full validation evidence has not been uploaded. Research-only status remains in effect.')
 
 with tracking:
     st.subheader('Paper ledger')
@@ -297,3 +315,4 @@ with settings:
 
 st.divider()
 st.caption('TRUE PROBABILITY HAMMER • Research utility only • All times and probabilities require source provenance • No guaranteed profits')
+
