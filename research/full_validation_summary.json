@@ -1,0 +1,290 @@
+{
+  "completed_at_utc": "2026-10-19T01:20:38.876292+00:00",
+  "scope": "Retrospective 2024-25 and 2025-26; previously examined by V2",
+  "protocol_sha256": "da28515a67a6827aac51d2152b0f53b60c67effbe1777ca85a6215bd070d6737",
+  "test_rows": 94447,
+  "test_games": 2624,
+  "binary_line_rows": 377788,
+  "scores": {
+    "v2_original": {
+      "n": 377788,
+      "log_loss": 0.37550464034534947,
+      "brier": 0.11985823542552028,
+      "event_rate": 0.19916725782714115,
+      "mean_probability": 0.2027134699281646
+    },
+    "v2_calibrated_control": {
+      "n": 377788,
+      "log_loss": 0.375486660372441,
+      "brier": 0.1198394847673244,
+      "event_rate": 0.19916725782714115,
+      "mean_probability": 0.19920425996275126
+    },
+    "v3_uncalibrated": {
+      "n": 377788,
+      "log_loss": 0.3752132823883016,
+      "brier": 0.11977254495446006,
+      "event_rate": 0.19916725782714115,
+      "mean_probability": 0.20365776865138077
+    },
+    "v3_calibrated": {
+      "n": 377788,
+      "log_loss": 0.3751509783252009,
+      "brier": 0.11974164552284648,
+      "event_rate": 0.19916725782714115,
+      "mean_probability": 0.19973402886341765
+    }
+  },
+  "paired_v3_minus_baseline": {
+    "v2_original": {
+      "log_loss_delta": -0.000353662020148692,
+      "brier_delta": -0.00011658990267379876,
+      "by_game": {
+        "estimate": -0.000353662020148692,
+        "ci95": [
+          -0.0005017321571258952,
+          -0.00019988556610884002
+        ],
+        "clusters": 2624,
+        "resamples": 2000
+      },
+      "by_calendar_week": {
+        "estimate": -0.000353662020148692,
+        "ci95": [
+          -0.0004950367012338274,
+          -0.00020951214622630626
+        ],
+        "clusters": 54,
+        "resamples": 2000
+      }
+    },
+    "v2_calibrated_control": {
+      "log_loss_delta": -0.00033568204724005525,
+      "brier_delta": -0.00009783924447792123,
+      "by_game": {
+        "estimate": -0.00033568204724005525,
+        "ci95": [
+          -0.00047324081209372884,
+          -0.00018687228785609672
+        ],
+        "clusters": 2624,
+        "resamples": 2000
+      },
+      "by_calendar_week": {
+        "estimate": -0.00033568204724005525,
+        "ci95": [
+          -0.000471598080645134,
+          -0.0001958975895426321
+        ],
+        "clusters": 54,
+        "resamples": 2000
+      }
+    }
+  },
+  "by_season": {
+    "2024": {
+      "v2_original": {
+        "n": 188868,
+        "log_loss": 0.378237382222709,
+        "brier": 0.12087894189214068,
+        "event_rate": 0.20138403541097485,
+        "mean_probability": 0.2065854961986761
+      },
+      "v2_calibrated_control": {
+        "n": 188868,
+        "log_loss": 0.3781919152465502,
+        "brier": 0.120851924592734,
+        "event_rate": 0.20138403541097485,
+        "mean_probability": 0.2030854288533704
+      },
+      "v3_uncalibrated": {
+        "n": 188868,
+        "log_loss": 0.37803968233901525,
+        "brier": 0.12082795647689192,
+        "event_rate": 0.20138403541097485,
+        "mean_probability": 0.20766539357162317
+      },
+      "v3_calibrated": {
+        "n": 188868,
+        "log_loss": 0.37793591158385237,
+        "brier": 0.1207825328409586,
+        "event_rate": 0.20138403541097485,
+        "mean_probability": 0.20373503783525435
+      }
+    },
+    "2025": {
+      "v2_original": {
+        "n": 188920,
+        "log_loss": 0.37277265065186493,
+        "brier": 0.11883780990711212,
+        "event_rate": 0.1969510904086386,
+        "mean_probability": 0.19884250942817008
+      },
+      "v2_calibrated_control": {
+        "n": 188920,
+        "log_loss": 0.3727821501164422,
+        "brier": 0.11882732361474414,
+        "event_rate": 0.1969510904086386,
+        "mean_probability": 0.19532415935914416
+      },
+      "v3_uncalibrated": {
+        "n": 188920,
+        "log_loss": 0.37238766040073346,
+        "brier": 0.11871742393276481,
+        "event_rate": 0.1969510904086386,
+        "mean_probability": 0.19965124682501864
+      },
+      "v3_calibrated": {
+        "n": 188920,
+        "log_loss": 0.37236681161603824,
+        "brier": 0.11870104470770142,
+        "event_rate": 0.1969510904086386,
+        "mean_probability": 0.1957341211644295
+      }
+    }
+  },
+  "by_line": {
+    "1.5": {
+      "v2_original": {
+        "n": 94447,
+        "log_loss": 0.6101855878254726,
+        "brier": 0.21072923827026818,
+        "event_rate": 0.42952131883490213,
+        "mean_probability": 0.4382694128876993
+      },
+      "v2_calibrated_control": {
+        "n": 94447,
+        "log_loss": 0.6099987705106535,
+        "brier": 0.21065923867109165,
+        "event_rate": 0.42952131883490213,
+        "mean_probability": 0.43499991688941847
+      },
+      "v3_uncalibrated": {
+        "n": 94447,
+        "log_loss": 0.6096547064067047,
+        "brier": 0.21051506392065547,
+        "event_rate": 0.42952131883490213,
+        "mean_probability": 0.4393867203756676
+      },
+      "v3_calibrated": {
+        "n": 94447,
+        "log_loss": 0.6094353039492022,
+        "brier": 0.21042775819950743,
+        "event_rate": 0.42952131883490213,
+        "mean_probability": 0.4346172893728332
+      }
+    },
+    "2.5": {
+      "v2_original": {
+        "n": 94447,
+        "log_loss": 0.45703658530290187,
+        "brier": 0.1471610184954058,
+        "event_rate": 0.21950935445276187,
+        "mean_probability": 0.22320335925913096
+      },
+      "v2_calibrated_control": {
+        "n": 94447,
+        "log_loss": 0.45697334527430633,
+        "brier": 0.14715403426905602,
+        "event_rate": 0.21950935445276187,
+        "mean_probability": 0.21845782996616953
+      },
+      "v3_uncalibrated": {
+        "n": 94447,
+        "log_loss": 0.4566692518761959,
+        "brier": 0.14707730392167775,
+        "event_rate": 0.21950935445276187,
+        "mean_probability": 0.22442837819317382
+      },
+      "v3_calibrated": {
+        "n": 94447,
+        "log_loss": 0.45657307280984316,
+        "brier": 0.14705732808848113,
+        "event_rate": 0.21950935445276187,
+        "mean_probability": 0.21929338401683485
+      }
+    },
+    "3.5": {
+      "v2_original": {
+        "n": 94447,
+        "log_loss": 0.28084914935379474,
+        "brier": 0.08165175978147333,
+        "event_rate": 0.10227958537592512,
+        "mean_probability": 0.10387539589823137
+      },
+      "v2_calibrated_control": {
+        "n": 94447,
+        "log_loss": 0.28091441520904054,
+        "brier": 0.08165234504270802,
+        "event_rate": 0.10227958537592512,
+        "mean_probability": 0.1001502472165478
+      },
+      "v3_uncalibrated": {
+        "n": 94447,
+        "log_loss": 0.28064602145106965,
+        "brier": 0.08161660577570076,
+        "event_rate": 0.10227958537592512,
+        "mean_probability": 0.10477236215724055
+      },
+      "v3_calibrated": {
+        "n": 94447,
+        "log_loss": 0.28065312423421324,
+        "brier": 0.08160522186767513,
+        "event_rate": 0.10227958537592512,
+        "mean_probability": 0.10111935664482835
+      }
+    },
+    "4.5": {
+      "v2_original": {
+        "n": 94447,
+        "log_loss": 0.15394723889922904,
+        "brier": 0.039890925154933796,
+        "event_rate": 0.04535877264497549,
+        "mean_probability": 0.04550571166759678
+      },
+      "v2_calibrated_control": {
+        "n": 94447,
+        "log_loss": 0.1540601104957633,
+        "brier": 0.03989232108644196,
+        "event_rate": 0.04535877264497549,
+        "mean_probability": 0.0432090457788693
+      },
+      "v3_uncalibrated": {
+        "n": 94447,
+        "log_loss": 0.15388314981923626,
+        "brier": 0.03988120619980623,
+        "event_rate": 0.04535877264497549,
+        "mean_probability": 0.04604361387944112
+      },
+      "v3_calibrated": {
+        "n": 94447,
+        "log_loss": 0.1539424123075447,
+        "brier": 0.039876273935722226,
+        "event_rate": 0.04535877264497549,
+        "mean_probability": 0.0439060854191742
+      }
+    }
+  },
+  "retrospective_gate_passed": true,
+  "champion": "V2",
+  "approved": false,
+  "prospective_test_complete": false,
+  "manual_review": "PENDING",
+  "odds_available": false,
+  "roi_or_clv_verified": false,
+  "data_limitations": {
+    "missing_player_seasons": [
+      {
+        "playerId": 8478400,
+        "season": 2024,
+        "name": "Colin White"
+      },
+      {
+        "playerId": 8481848,
+        "season": 2024,
+        "name": "Jacob Gaucher"
+      }
+    ],
+    "invalid_or_missing_toi": 1
+  }
+}
