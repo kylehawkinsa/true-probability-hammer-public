@@ -7,7 +7,7 @@ A research-only model or stale market NEVER displays an actionable selection.
 from __future__ import annotations
 import json
 import os
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from pathlib import Path
 import pandas as pd
 import streamlit as st
@@ -32,6 +32,9 @@ html,body,[class*="css"],p,div,span{font-family:'DM Sans',sans-serif}
 section[data-testid="stSidebar"]{background:#101C2B}
 div[data-testid="stMetric"]{background:#132233;border-radius:14px;padding:12px;border:1px solid #23384A}
 button[data-testid="stBaseButton-primary"]{background:#45F2C6;color:#051C19;border:0;font-weight:800}
+.tph-best{background:#0d3d2e;color:#7af0c9;font-weight:700;border-radius:8px;padding:2px 8px}
+.tph-better{background:#3d320d;color:#f5c68c;font-weight:700;border-radius:8px;padding:2px 8px}
+.tph-good{background:#3d240d;color:#f5a068;font-weight:700;border-radius:8px;padding:2px 8px}
 @media(max-width:650px){
  .block-container{padding:1rem .72rem 4rem}
  .tph-title{font-size:1.65rem}
@@ -126,36 +129,96 @@ c2.metric('Live quote rows',f'{len(quotes):,}')
 c3.metric('Approved forecasts',sum(1 for x in forecasts if x.get('model_status')=='approved' and x.get('data_verified') is True))
 st.caption('Feeds are server-side snapshots, not a streaming sportsbook connection. Price freshness checked against provider timestamps.')
 
+# --- Build verified eligible edges (shared by Board and Tomorrows Picks) ---
+latest={}
+for q in quotes:
+    try:
+        if utc(q['game_start_utc'])<=now:continue
+        k=(str(q['event_id']),normalize_name(q['player_name']),float(q['line']),str(q['book']),str(q['side']))
+        if k not in latest or utc(q['price_captured_at_utc'])>utc(latest[k]['price_captured_at_utc']):latest[k]=q
+    except (KeyError,ValueError,TypeError):continue
+eligible=[];rejects={}
+for fc in forecasts:
+    try:
+        if utc(fc['game_start_utc'])<=now:continue
+        for book in ['draftkings','fanduel']:
+            keybase=(str(fc['event_id']),normalize_name(fc['player_name']),float(fc['line']),book)
+            over=latest.get(keybase+('Over',));under=latest.get(keybase+('Under',))
+            if not over or not under:
+                rejects['Both sides of price unavailable']=rejects.get('Both sides of price unavailable',0)+1
+                continue
+            for q,opp in [(over,under),(under,over)]:
+                test=compare(fc,q,opp,now)
+                if test.get('eligible'):
+                    test['game_start_utc']=fc.get('game_start_utc')
+                    eligible.append(test)
+                else:
+                    reason=test.get('reason','Unverified')
+                    rejects[reason]=rejects.get(reason,0)+1
+    except (KeyError,ValueError,TypeError):continue
+
+# --- Tomorrows Picks ---
+st.markdown('---')
+st.markdown('<div class="tph-eyebrow">TOMORROWS PICKS</div>',unsafe_allow_html=True)
+st.markdown('<div class="tph-title" style="font-size:1.55rem">Top 10 SOG props</div>',unsafe_allow_html=True)
+st.caption('Ranked by model true probability first, then edge gap. Only props with live DK and/or FD lines. Edge is not required.')
+
+tomorrow_start=(now+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
+tomorrow_end=tomorrow_start+timedelta(days=1)
+tomorrow_picks=[]
+for e in eligible:
+    try:
+        start=utc(e.get('game_start_utc') or '')
+        if tomorrow_start<=start<tomorrow_end:
+            tomorrow_picks.append(e)
+    except (ValueError,TypeError):
+        continue
+
+if not tomorrow_picks:
+    st.info('No verified tomorrow SOG props yet. Lines must be up on DK and/or FD with a matching approved forecast.')
+else:
+    # Score: true probability primary, edge secondary. No edge required.
+    def score(row):
+        tp=float(row.get('true_probability') or 0)
+        edge=float(row.get('edge_vs_no_vig_pp') or 0)
+        return (tp, edge)
+    tomorrow_picks.sort(key=score, reverse=True)
+    top=tomorrow_picks[:10]
+    # Color tiers by rank: Best (top 3) green, Better (4-6) yellow, Good (7-10) orange
+    rows=[]
+    for i,r in enumerate(top):
+        tier='Best' if i<3 else 'Better' if i<6 else 'Good'
+        rows.append({
+            'Tier':tier,
+            'Player':r.get('player',''),
+            'Side':r.get('side',''),
+            'Line':r.get('line'),
+            'Book':r.get('book',''),
+            'Odds':r.get('odds'),
+            'True Prob':r.get('true_probability'),
+            'Implied':r.get('book_break_even'),
+            'Edge (pp)':r.get('edge_vs_no_vig_pp'),
+        })
+    df_tom=pd.DataFrame(rows)
+    def color_tier(val):
+        if val=='Best':return 'background-color:#0d3d2e;color:#7af0c9;font-weight:700'
+        if val=='Better':return 'background-color:#3d320d;color:#f5c68c;font-weight:700'
+        if val=='Good':return 'background-color:#3d240d;color:#f5a068;font-weight:700'
+        return ''
+    styled=df_tom.style.applymap(color_tier,subset=['Tier']).format({
+        'True Prob':'{:.1%}',
+        'Implied':'{:.1%}',
+        'Edge (pp)':'{:+.1f}',
+        'Line':'{:.1f}',
+    })
+    st.dataframe(styled,use_container_width=True,hide_index=True)
+    st.caption('Best = green, Better = yellow, Good = orange. True probability is ranked above edge gap. Implied = book break-even. Edge = model minus no-vig market (pp).')
+
 # Mobile-friendly navigation.
 board,player,validation,tracking,settings=st.tabs(['🎯 Board','👤 Players','📈 Model','🧾 Ledger','⚙️ Setup'])
 with board:
     st.subheader('Today’s verified pricing board')
     st.caption('This board will be empty until a trained, prospectively approved model and up-to-date paired DK/FD quotes exist.')
-    latest={}
-    for q in quotes:
-        try:
-            if utc(q['game_start_utc'])<=now:continue
-            k=(str(q['event_id']),normalize_name(q['player_name']),float(q['line']),str(q['book']),str(q['side']))
-            if k not in latest or utc(q['price_captured_at_utc'])>utc(latest[k]['price_captured_at_utc']):latest[k]=q
-        except (KeyError,ValueError,TypeError):continue
-    eligible=[];rejects={}
-    for fc in forecasts:
-        # An earlier forecast is never overridden by a later forecast after a game.
-        try:
-            if utc(fc['game_start_utc'])<=now:continue
-            for book in ['draftkings','fanduel']:
-                keybase=(str(fc['event_id']),normalize_name(fc['player_name']),float(fc['line']),book)
-                over=latest.get(keybase+('Over',));under=latest.get(keybase+('Under',))
-                if not over or not under:
-                    rejects['Both sides of price unavailable']=rejects.get('Both sides of price unavailable',0)+1
-                    continue
-                for q,opp in [(over,under),(under,over)]:
-                    test=compare(fc,q,opp,now)
-                    if test.get('eligible'):eligible.append(test)
-                    else:
-                        reason=test.get('reason','Unverified')
-                        rejects[reason]=rejects.get(reason,0)+1
-        except (KeyError,ValueError,TypeError):continue
     if eligible:
         df=pd.DataFrame(eligible).sort_values(['ev_per_dollar','edge_vs_no_vig_pp'],ascending=False).drop_duplicates(subset=['book','player','side','line'])
         c1,c2=st.columns(2)
