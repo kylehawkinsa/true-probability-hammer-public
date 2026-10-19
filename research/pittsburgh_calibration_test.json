@@ -1,1 +1,32 @@
-
+{
+  "type": "archive calibrator split smoke test",
+  "scope": "Pittsburgh 2023\u201324 82-game RETROSPECTIVE archive; one-team only",
+  "training_rows": 2952,
+  "test_rows": 2952,
+  "date_split": "2024-01-15",
+  "original_v2_holdout": {
+    "n": 2952,
+    "log_loss": 0.4114130728101945,
+    "brier": 0.1335045898992676,
+    "event_rate": 0.23712737127371275,
+    "mean_probability": 0.25423835686224944
+  },
+  "v3_calibration_holdout": {
+    "n": 2952,
+    "log_loss": 0.4112592683159589,
+    "brier": 0.13355466197684465,
+    "event_rate": 0.23712737127371275,
+    "mean_probability": 0.25421936673826917
+  },
+  "improvement_in_log_loss": 0.00015380449423563203,
+  "calibrator": {
+    "intercept": 0.032104652941672106,
+    "slope": 1.0456786921881278,
+    "trained_rows": 2952
+  },
+  "notes": [
+    "This does not evaluate V3 advanced predictive features.",
+    "PIT archive originally fitted retrospectively; not a pristine out-of-sample experiment.",
+    "Hypothetical fixed shot lines, not verified available sportsbook odds."
+  ]
+}
