@@ -1,0 +1,15 @@
+.streamlit/secrets.toml
+.env
+private_data/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.bin
+*.parquet
+*.key
+.DS_Store
+*.zip
+*.sqlite
+*.db
+.venv/
+venv/
