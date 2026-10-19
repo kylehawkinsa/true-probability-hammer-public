@@ -9,6 +9,8 @@ import json
 import os
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
+from html import escape
 import pandas as pd
 import streamlit as st
 from tph_core import password_valid,compare,gate,utc,normalize_name
@@ -88,8 +90,8 @@ with st.sidebar:
     st.write('Every prediction must be timestamped before puck drop.')
 
 st.markdown('<div class="tph-eyebrow">THE HAMMER / NHL SHOTS ON GOAL</div>',unsafe_allow_html=True)
-st.markdown('<div class="tph-title">Command center <span style="color:#6fe5c2">↗</span></div>',unsafe_allow_html=True)
-st.markdown('<div class="tph-muted">Private model intelligence • Pregame-only forecasts • DK + FanDuel</div>',unsafe_allow_html=True)
+st.markdown('<div class="tph-title">Kyle Hawkins Sharp SOG Model</div>',unsafe_allow_html=True)
+st.markdown('<div class="tph-muted">NHL shots on goal · DraftKings + FanDuel</div>',unsafe_allow_html=True)
 st.write('')
 st.markdown('<span class="tph-chip tph-chip-warn">● PAPER / RESEARCH MODE</span>',unsafe_allow_html=True)
 
@@ -123,11 +125,26 @@ for row in quotes:
 recent_age=round((now-most_recent).total_seconds()/60) if most_recent else None
 status=('RECENT' if recent_age is not None and 0<=recent_age<=15 else 'STALE / UNCONNECTED')
 
-c1,c2,c3=st.columns(3)
-c1.metric('Price feed',status)
-c2.metric('Live quote rows',f'{len(quotes):,}')
-c3.metric('Approved forecasts',sum(1 for x in forecasts if x.get('model_status')=='approved' and x.get('data_verified') is True))
-st.caption('Feeds are server-side snapshots, not a streaming sportsbook connection. Price freshness checked against provider timestamps.')
+# Captured sportsbook observations: display-only, never injected into approved forecasts.
+CAPTURED_MARKET_ROWS=json.loads(r'''[["2026-10-19 7:00 PM | COL @ PHI","Nathan MacKinnon","COL",3.5,null,null,-146,112],["2026-10-19 7:00 PM | COL @ PHI","Cale Makar","COL",2.5,null,null,-114,-114],["2026-10-19 7:00 PM | ANA @ NYR","Alex Killorn","ANA",1.5,null,null,-160,122],["2026-10-19 7:00 PM | ANA @ NYR","Cutter Gauthier","ANA",3.5,null,null,100,-130],["2026-10-19 7:00 PM | ANA @ NYR","Beckett Sennecke","ANA",2.5,null,null,114,-148],["2026-10-19 7:00 PM | ANA @ NYR","Will Cuylle","NYR",1.5,null,null,-168,128],["2026-10-19 7:00 PM | ANA @ NYR","Gabe Perreault","NYR",1.5,null,null,-138,104],["2026-10-19 7:00 PM | ANA @ NYR","Pavel Dorofeyev","NYR",2.5,null,null,null,null],["2026-10-19 7:00 PM | ANA @ NYR","Alexis Lafrenière","NYR",1.5,null,null,null,null],["2026-10-19 7:30 PM | SJ @ TOR","Jack Roslovic","TOR",1.5,null,null,-188,142],["2026-10-19 7:30 PM | SJ @ TOR","Kirill Marchenko","TOR",2.5,null,null,null,null],["2026-10-19 7:30 PM | SJ @ TOR","Mason Marchment","SJ",1.5,null,null,-146,112],["2026-10-19 7:30 PM | SJ @ TOR","William Nylander","TOR",2.5,null,null,-130,100],["2026-10-19 7:30 PM | SJ @ TOR","Darren Raddysh","TOR",2.5,null,null,100,-130],["2026-10-19 7:30 PM | SJ @ TOR","Will Smith","SJ",2.5,null,null,-106,-122],["2026-10-19 7:30 PM | SJ @ TOR","Tyler Toffoli","SJ",1.5,null,null,null,null],["2026-10-19 9:00 PM | PIT @ UTA","Mikhail Sergachev","UTA",1.5,null,null,-160,122],["2026-10-19 9:00 PM | PIT @ UTA","Anders Lee","UTA",1.5,null,null,-164,125],["2026-10-19 9:00 PM | PIT @ UTA","Bryan Rust","PIT",1.5,null,null,-176,134],["2026-10-19 9:00 PM | PIT @ UTA","Clayton Keller","UTA",2.5,null,null,108,-140],["2026-10-19 9:00 PM | PIT @ UTA","Nick Schmaltz","UTA",2.5,null,null,-102,-128],["2026-10-19 9:00 PM | PIT @ UTA","Tommy Novak","PIT",1.5,null,null,100,null],["2026-10-19 9:00 PM | PIT @ UTA","Barrett Hayton","UTA",1.5,null,null,-118,-110],["2026-10-19 9:00 PM | PIT @ UTA","Erik Karlsson","PIT",1.5,null,null,-154,118],["2026-10-19 9:00 PM | PIT @ UTA","Dylan Guenther","UTA",2.5,null,null,-130,100],["2026-10-19 9:00 PM | PIT @ UTA","Rickard Rakell","PIT",2.5,null,null,114,-148]]''')
+
+def snapshot_market_frame(records):
+    def implied(price):
+        if price is None or abs(price)<100:
+            return None
+        return 100/(price+100) if price>0 else abs(price)/(abs(price)+100)
+    output=[]
+    for r in records:
+        date_time,matchup=r[0].split(' | ',1)
+        start=datetime.strptime(date_time,'%Y-%m-%d %I:%M %p').replace(tzinfo=ZoneInfo('America/New_York'))
+        output.append({
+            'Player':r[1], 'Team':r[2], 'SOG line':r[3],
+            'FD Under':r[7], 'Under implied':implied(r[7]),
+            'FD Over':r[6], 'Over implied':implied(r[6]),
+            'Matchup':matchup, 'Start ET':start.strftime('%m/%d %I:%M %p'),
+            'Status':'Game started' if start<=now else ('Under not captured' if r[7] is None else 'Captured price'),
+        })
+    return pd.DataFrame(output)
 
 # --- Build verified eligible edges (shared by Board and Tomorrows Picks) ---
 latest={}
@@ -157,90 +174,61 @@ for fc in forecasts:
                     rejects[reason]=rejects.get(reason,0)+1
     except (KeyError,ValueError,TypeError):continue
 
-# --- Tomorrows Picks ---
-st.markdown('---')
-st.markdown('<div class="tph-eyebrow">TOMORROWS PICKS</div>',unsafe_allow_html=True)
-st.markdown('<div class="tph-title" style="font-size:1.55rem">Top 10 SOG props</div>',unsafe_allow_html=True)
-st.caption('Ranked by model true probability first, then edge gap. Only props with live DK and/or FD lines. Edge is not required.')
-
-tomorrow_start=(now+timedelta(days=1)).replace(hour=0,minute=0,second=0,microsecond=0)
-tomorrow_end=tomorrow_start+timedelta(days=1)
-tomorrow_picks=[]
-for e in eligible:
-    try:
-        start=utc(e.get('game_start_utc') or '')
-        if tomorrow_start<=start<tomorrow_end:
-            tomorrow_picks.append(e)
-    except (ValueError,TypeError):
-        continue
-
-if not tomorrow_picks:
-    st.info('No verified tomorrow SOG props yet. Lines must be up on DK and/or FD with a matching approved forecast.')
-else:
-    # Score: true probability primary, edge secondary. No edge required.
-    def score(row):
-        tp=float(row.get('true_probability') or 0)
-        edge=float(row.get('edge_vs_no_vig_pp') or 0)
-        return (tp, edge)
-    tomorrow_picks.sort(key=score, reverse=True)
-    top=tomorrow_picks[:10]
-    # Color tiers by rank: Best (top 3) green, Better (4-6) yellow, Good (7-10) orange
-    rows=[]
-    for i,r in enumerate(top):
-        tier='Best' if i<3 else 'Better' if i<6 else 'Good'
-        rows.append({
-            'Tier':tier,
-            'Player':r.get('player',''),
-            'Side':r.get('side',''),
-            'Line':r.get('line'),
-            'Book':r.get('book',''),
-            'Odds':r.get('odds'),
-            'True Prob':r.get('true_probability'),
-            'Implied':r.get('book_break_even'),
-            'Edge (pp)':r.get('edge_vs_no_vig_pp'),
-        })
-    df_tom=pd.DataFrame(rows)
-    def color_tier(val):
-        if val=='Best':return 'background-color:#0d3d2e;color:#7af0c9;font-weight:700'
-        if val=='Better':return 'background-color:#3d320d;color:#f5c68c;font-weight:700'
-        if val=='Good':return 'background-color:#3d240d;color:#f5a068;font-weight:700'
-        return ''
-    styled=df_tom.style.applymap(color_tier,subset=['Tier']).format({
-        'True Prob':'{:.1%}',
-        'Implied':'{:.1%}',
-        'Edge (pp)':'{:+.1f}',
-        'Line':'{:.1f}',
-    })
-    st.dataframe(styled,use_container_width=True,hide_index=True)
-    st.caption('Best = green, Better = yellow, Good = orange. True probability is ranked above edge gap. Implied = book break-even. Edge = model minus no-vig market (pp).')
-
-# Mobile-friendly navigation.
-board,player,validation,tracking,settings=st.tabs(['🎯 Board','👤 Players','📈 Model','🧾 Ledger','⚙️ Setup'])
-with board:
-    st.subheader('Today’s verified pricing board')
-    st.caption('This board will be empty until a trained, prospectively approved model and up-to-date paired DK/FD quotes exist.')
-    if eligible:
-        df=pd.DataFrame(eligible).sort_values(['ev_per_dollar','edge_vs_no_vig_pp'],ascending=False).drop_duplicates(subset=['book','player','side','line'])
-        c1,c2=st.columns(2)
-        with c1:min_ev=st.slider('Minimum model EV %',min_value=0,max_value=20,value=2,step=1)
-        with c2:book_filter=st.selectbox('Sportsbook',['Both','draftkings','fanduel'])
-        df=df[df.ev_per_dollar>=min_ev/100]
-        if book_filter!='Both':df=df[df.book==book_filter]
-        if df.empty:st.info('No valid edges satisfy these filters.')
-        else:
-            st.dataframe(df[['player','side','line','book','odds','true_probability','book_break_even','market_no_vig','edge_vs_no_vig_pp','ev_per_dollar']].head(25),use_container_width=True,hide_index=True)
-            st.caption('Edge = model probability minus proportional no-vig market probability, in percentage points. EV is model-estimated, NOT guaranteed return.')
+# Main navigation keeps research and setup off the daily screen.
+home,board,validation,tracking,settings=st.tabs(['Top 10','Odds','Research','Ledger','Settings'])
+with home:
+    st.subheader('Top 10 plays')
+    game_date=st.date_input('Game date (Eastern)',value=now.astimezone(ZoneInfo('America/New_York')).date())
+    picks=[r for r in eligible if utc(r['game_start_utc']).astimezone(ZoneInfo('America/New_York')).date()==game_date]
+    picks.sort(key=lambda r:(r['true_probability'],r['edge_vs_no_vig_pp']),reverse=True)
+    seen=set();top=[]
+    for r in picks:
+        key=(normalize_name(r['player']),r['game_start_utc'])
+        if key not in seen:
+            seen.add(key);top.append(r)
+        if len(top)==10:break
+    if not top:
+        st.markdown('<div class="tph-shell"><h3>Picks awaiting verified forecasts</h3><p class="tph-muted">Current game histories, lineup inputs and model approval are still required before plays can be ranked.</p><p>26 captured player lines are available in the <b>Odds</b> tab.</p></div>',unsafe_allow_html=True)
     else:
-        st.markdown('<div class="tph-shell"><div style="font-weight:800;font-size:1.18rem">No verified edges to display</div><div class="tph-muted" style="margin-top:5px">That is the correct output until prices, model approval, and pregame matching all pass. We do not invent lines to fill the screen.</div></div>',unsafe_allow_html=True)
-        if forecasts:st.caption(f'{len(forecasts):,} forecast records in database; no qualified same-game, same-player, same-line market pairs.')
-        if rejects:
-            with st.expander('Why predictions were blocked'):st.json(rejects)
-    st.divider()
-    st.subheader('Market integrity rules')
-    st.write('✅ Valid DK/FD odds, BOTH sides of the same line, matching event/player, timezone-aware timestamps, prior-to-start forecast, provider age within 15 minutes, and prospectively approved model.')
-    st.write('⛔ Unverified, hypothetical, stale, past-start, or unmatched entries never appear as actionable edges.')
+        st.caption('Ranked by model probability, then edge. One selection per player/game. These rankings do not require positive EV.')
+        for i in range(0,len(top),2):
+            columns=st.columns(2)
+            for col,(rank,r) in zip(columns,enumerate(top[i:i+2],start=i+1)):
+                with col:
+                    with st.container(border=True):
+                        st.markdown(f"### {rank}. {escape(r['player'])}")
+                        st.write(f"{r['side']} {r['line']:g} SOG · {r['book'].title()} {r['odds']:+d}")
+                        a,b=st.columns(2)
+                        a.metric('Model probability',f"{r['true_probability']:.1%}")
+                        b.metric('Implied probability',f"{r['book_break_even']:.1%}")
+                        st.caption(f"Edge {r['edge_vs_no_vig_pp']:+.1f} pp · EV {r['ev_per_dollar']:+.1%}")
+    if rejects:
+        with st.expander('Forecast checks'):st.json(rejects)
 
-with player:
+with board:
+    st.divider()
+    st.subheader('Captured SOG lines · October 19, 2026')
+    st.caption('FanDuel prices observed on Props.Cash, Oct 18 approximately 9:50–9:57 PM ET. Manual snapshot, not an automatic feed. Sportsbook update timestamps were not supplied.')
+    market_frame=snapshot_market_frame(CAPTURED_MARKET_ROWS)
+    a,b,c=st.columns(3)
+    a.metric('Player lines',len(market_frame))
+    b.metric('Under prices',int(market_frame['FD Under'].notna().sum()))
+    c.metric('Over prices',int(market_frame['FD Over'].notna().sum()))
+    st.info('Model scoring pending: verified current-season game-history features and pregame lineup inputs are missing. Implied probabilities below come from prices; model true probability and EV are unavailable.')
+    market_choice=st.selectbox('Captured matchup',['All games']+sorted(market_frame['Matchup'].unique().tolist()),key='captured_matchup')
+    market_view=market_frame if market_choice=='All games' else market_frame[market_frame['Matchup']==market_choice]
+    st.dataframe(
+        market_view.style.format({
+            'SOG line':'{:.1f}', 'FD Under':'{:+.0f}', 'FD Over':'{:+.0f}',
+            'Under implied':'{:.1%}', 'Over implied':'{:.1%}',
+        },na_rep='Unavailable'),
+        hide_index=True,use_container_width=True,height=440,
+    )
+    st.caption('DraftKings quotes were not captured. Missing prices remain unavailable. These observations do not count as prospective model picks or change model approval.')
+    st.download_button('Download captured lines',market_frame.to_csv(index=False),
+                       'sog_market_snapshot_2026-10-19.csv','text/csv')
+
+with validation, st.expander('Historical player lab'):
     st.subheader('Historical player lab')
     st.caption('This is actual saved Pittsburgh 2023–24 V2 forecast data; not a current slate or actual sportsbook prices.')
     db=archive()
@@ -301,6 +289,12 @@ with tracking:
     st.info('The dashboard does not place real wagers. Immutable storage, automatic grading, and CLV require the next backend milestone.')
 
 with settings:
+    c1,c2,c3=st.columns(3)
+    c1.metric('Automated price feed',status)
+    c2.metric('Live quote rows',f'{len(quotes):,}')
+    c3.metric('Approved forecasts',sum(1 for x in forecasts if x.get('model_status')=='approved' and x.get('data_verified') is True))
+    st.caption('Feeds are server-side snapshots, not a streaming sportsbook connection. Price freshness checked against provider timestamps.')
+
     st.subheader('Operations & access')
     st.write('**Security:** hosting must be set PRIVATE to allowlisted email accounts; second gate requires your dedicated scrypt-protected password.')
     st.write('**Database:** '+('Configured' if url and key else 'Not connected. Configure Supabase server-side credentials.'))
